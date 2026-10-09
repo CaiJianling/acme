@@ -1,0 +1,14 @@
+{% extends "bare.html" %}
+{% block content %}
+  <p class="muted">输入管理密码进入。</p>
+  <p class="muted small">忘记密码：先停止服务，再执行
+    <code>sqlite3 数据目录/acme.db "DELETE FROM settings WHERE key='admin_password_hash'"</code>，
+    重启后会进入初始化页面重新设置密码（数据目录见页面底部，域名、凭证与证书都不受影响）。</p>
+  <form method="post" action="/login" class="stack">
+    <label>管理密码
+      <input type="password" name="password" autocomplete="current-password" required autofocus>
+    </label>
+    <button type="submit" class="primary">登录</button>
+  </form>
+  {% if locked %}<p class="muted">该 IP 已被临时锁定 {{ locked }} 秒。</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block content %}
+  <h1>域名与子域名</h1>
+  <table>
+    <thead><tr><th>域名</th><th>凭证</th><th>勾选的记录</th><th>证书数</th><th></th></tr></thead>
+    <tbody>
+    {% for row in items %}
+      <tr>
+        <td><a href="/domains/{{ row.id }}"><b>{{ row.domain }}</b></a></td>
+        <td>{{ row.credential_name }}</td>
+        <td>{{ row.enabled_count }}</td>
+        <td>{{ row.certificates }}</td>
+        <td>
+          <form method="post" action="/domains/{{ row.id }}/delete" class="inline-form"
+                onsubmit="return confirm('删除 {{ row.domain }} 会同时删除其证书记录与磁盘文件，确定？')">
+            {{ csrf_field() }}<button type="submit" class="danger">删除</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">还没有域名。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>添加域名</h2>
+  {% if not credentials %}
+    <p class="flash bad">还没有阿里云凭证，请先到「阿里云凭证」添加 AccessKey。</p>
+  {% endif %}
+  <form method="post" action="/domains" class="grid2">
+    {{ csrf_field() }}
+    <label>域名（主域名，不含 www）
+      <input name="domain" required placeholder="example.com" pattern="[a-zA-Z0-9.*_-]+(\.[a-zA-Z0-9_-]+)+">
+    </label>
+    <label>使用哪个阿里云凭证解析
+      <select name="credential_id" required>
+        {% for item in credentials %}
+          <option value="{{ item.id }}">{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="full"><button type="submit" class="primary" {{ 'disabled' if not credentials }}>添加</button></div>
+  </form>
+  <p class="muted">添加时会自动创建两条主机记录：<code>@</code>（example.com）与 <code>*</code>（*.example.com，泛域名）。可在域名页里增删子域名，或从阿里云导入已有解析记录。</p>
+{% endblock %}

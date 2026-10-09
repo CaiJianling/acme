@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SSL 证书管理{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+{% block shell %}
+  <header class="topbar">
+    <span class="brand">SSL 证书管理</span>
+    <nav>
+      <a href="/" class="{{ 'on' if page in ('index',) }}">概览</a>
+      <a href="/domains" class="{{ 'on' if page in ('domains', 'domain') }}">域名与子域名</a>
+      <a href="/certificates" class="{{ 'on' if page in ('certificates', 'certificate') }}">证书</a>
+      <a href="/credentials" class="{{ 'on' if page == 'credentials' }}">阿里云凭证</a>
+      <a href="/settings" class="{{ 'on' if page == 'settings' }}">设置</a>
+    </nav>
+    <form method="post" action="/logout" class="inline-form">
+      {% from "_macros.html" import csrf_field with context %}{{ csrf_field() }}
+      <button type="submit" class="link">退出登录</button>
+    </form>
+  </header>
+  <main>
+    {% if notice %}<p class="flash ok">{{ notice }}</p>{% endif %}
+    {% if error %}<p class="flash bad">{{ error }}</p>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="pagefoot">
+    当前 CA：{{ ca_label }} ｜ 自动续期：
+    {% if s.auto_renew_enabled == '1' %}开启，每天 {{ s.renewal_hour }}:10 下次运行 {{ next_run }}{% else %}已关闭{% endif %}
+    ｜ 数据目录：{{ data_dir }}
+  </footer>
+{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

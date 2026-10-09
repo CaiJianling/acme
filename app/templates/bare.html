@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}登录{% endblock %} · SSL 证书管理</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="bare">
+  <div class="card center">
+    <h1 class="brand">SSL 证书管理</h1>
+    {% if notice %}<p class="flash ok">{{ notice }}</p>{% endif %}
+    {% if error %}<p class="flash bad">{{ error }}</p>{% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

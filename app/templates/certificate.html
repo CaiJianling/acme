@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field, status_badge with context %}
+{% block title %}证书 #{{ cert.id }} · {{ cert.domain }}{% endblock %}
+{% block content %}
+  <h1>证书 #{{ cert.id }} <span id="status">{{ status_badge(cert.status, cert.remaining) }}</span></h1>
+  <p><a href="/domains/{{ cert.domain_id }}">&larr; {{ cert.domain }}</a></p>
+
+  {% if cert.error %}<p class="flash bad">{{ cert.error }}</p>{% endif %}
+
+  <table class="kv">
+    <tr><th>包含域名（SAN）</th><td><code>{{ cert.name_list | join('、') }}</code></td></tr>
+    <tr><th>密钥类型</th><td>{{ cert.key_type }}</td></tr>
+    <tr><th>签发 CA</th><td class="small">{{ cert.ca_directory }}</td></tr>
+    <tr><th>序列号</th><td><code>{{ cert.serial or '—' }}</code></td></tr>
+    <tr><th>有效期</th><td>{{ cert.not_before | local(seconds=True) or '—' }} → {{ cert.not_after_display or '—' }}
+      {% if cert.remaining is not none %}（剩 {{ cert.remaining }} 天）{% endif %}</td></tr>
+    <tr><th>更新时间</th><td>{{ cert.updated_display }}</td></tr>
+    <tr><th>文件位置</th><td class="small">{{ directory }}</td></tr>
+  </table>
+
+  <h2>下载</h2>
+  <table>
+    <thead><tr><th>文件</th><th>说明</th><th>下载</th></tr></thead>
+    <tbody>
+    {% for file in files %}
+      <tr>
+        <td><code>{{ file.name }}</code></td>
+        <td class="small">{{ {
+          'fullchain.pem': '服务器证书 + 中间证书（Nginx ssl_certificate）',
+          'cert.pem': '仅叶子证书',
+          'privkey.pem': '私钥（Nginx ssl_certificate_key），请走安全通道传输',
+          'chain.pem': '仅中间证书'
+        }[file.name] }}</td>
+        <td>{% if file.exists %}
+          <a href="/certificates/{{ cert.id }}/download?kind={{ file.kind }}">下载</a>
+        {% else %}<span class="muted">尚未生成</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+      <tr><td><code>.pfx / .p12</code></td><td class="small">IIS / Windows 部署，密码取「设置 → PFX 密码」</td>
+        <td><a href="/certificates/{{ cert.id }}/download?kind=pfx">导出 PFX</a></td></tr>
+      <tr><td><code>.cer (DER)</code></td><td class="small">Java / 旧设备需要的 DER 格式</td>
+        <td><a href="/certificates/{{ cert.id }}/download?kind=der">导出 DER</a></td></tr>
+      <tr><td><code>zip</code></td><td class="small">全部文件打包</td>
+        <td><a href="/certificates/{{ cert.id }}/download?kind=zip">打包下载</a></td></tr>
+    </tbody>
+  </table>
+  {% if not files[0].exists %}<p class="muted">还没有文件时，先点下面的「重新申请」。</p>{% endif %}
+
+  <h2>操作</h2>
+  <div class="row">
+    <form method="post" action="/certificates/{{ cert.id }}/renew" class="inline-form">
+      {{ csrf_field() }}<button type="submit" class="primary">{{ '重新申请' if cert.status != 'active' else '立即续期' }}</button>
+    </form>
+    <form method="post" action="/certificates/{{ cert.id }}/revoke" class="inline-form"
+          onsubmit="return confirm('吊销后不可撤销，需要重新申请。确定？')">
+      {{ csrf_field() }}<button type="submit" class="danger">吊销</button>
+    </form>
+    <form method="post" action="/certificates/{{ cert.id }}/delete" class="inline-form"
+          onsubmit="return confirm('删除记录与磁盘文件（不影响已在用的服务器），确定？')">
+      {{ csrf_field() }}<button type="submit" class="danger">删除记录</button>
+    </form>
+  </div>
+
+  <h2>签发日志</h2>
+  <p class="muted small" id="hint">
+    页面会每 3 秒自动拉取新日志；<noscript>浏览器禁用 JS 时请手动刷新。</noscript>
+  </p>
+  <ul class="log" id="log">
+    {% for row in events %}
+      <li data-id="{{ row.id }}" class="lvl-{{ row.level }}">
+        <span class="time">{{ row.created_at | local(seconds=True) }}</span><span class="lvl">{{ row.level }}</span>{{ row.message }}
+      </li>
+    {% else %}
+      <li class="muted">还没有日志。</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
+
+{% block scripts %}
+<script id="cert-meta" type="application/json">{"id": {{ cert.id }}, "after": {{ last_event_id }}, "status": "{{ cert.status }}"}</script>
+<script src="/static/cert.js"></script>
+{% endblock %}

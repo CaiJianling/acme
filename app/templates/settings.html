@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block content %}
+  <h1>设置</h1>
+
+  <h2>1. 签发机构（CA）</h2>
+  <form method="post" action="/settings" class="stack">
+    {{ csrf_field() }}
+    <label>CA
+      <select name="ca_name">
+        <option value="letsencrypt" {{ 'selected' if values.ca_name == 'letsencrypt' }}>Let's Encrypt（生产环境，浏览器信任）</option>
+        <option value="letsencrypt-staging" {{ 'selected' if values.ca_name == 'letsencrypt-staging' }}>Let's Encrypt Staging（测试环境，不信任但限额宽松）</option>
+        <option value="zerossl" {{ 'selected' if values.ca_name == 'zerossl' }}>ZeroSSL（需在凭证里填 EAB）</option>
+      </select>
+    </label>
+    <label>自定义 CA 目录 URL（留空则用上面的选项）
+      <input name="ca_directory" value="{{ values.ca_directory }}" placeholder="https://acme.example.org/directory">
+    </label>
+    <label>联系邮箱（CA 用来发到期/吊销通知，可留空）
+      <input type="email" name="contact_email" value="{{ values.contact_email }}" placeholder="admin@example.com">
+    </label>
+    <div class="row">
+      <button type="submit" class="primary">保存全部设置</button>
+    </div>
+  </form>
+  <form method="post" action="/settings/test-ca" class="row">
+    {{ csrf_field() }}
+    <button type="submit">测试 CA 连接并注册账号</button>
+    <span class="muted small">ACME 账号私钥：{{ account_key }}</span>
+  </form>
+  <p class="muted small">
+    当前使用：{{ ca_label }}。国内服务器直连 Let's Encrypt 通常可用（DNS-01 不需要对外开放 80/443），
+    若反复超时可在「CA → 自定义目录」换成其它可达的 ACME 服务。
+  </p>
+
+  <h2>2. 续期与提醒</h2>
+  <form method="post" action="/settings" class="grid2">
+    {{ csrf_field() }}
+    <label>剩余多少天自动续期（天）<input type="number" name="renew_before_days" min="1" max="365" value="{{ values.renew_before_days }}"></label>
+    <label>剩余多少天开始告警（天）<input type="number" name="warn_before_days" min="1" max="365" value="{{ values.warn_before_days }}"></label>
+    <label>每天几点执行续期检查（0-23）<input type="number" name="renewal_hour" min="0" max="23" value="{{ values.renewal_hour }}"></label>
+    <label>等待 TXT 生效的最长时间（秒）<input type="number" name="dns_propagation_timeout" min="30" max="1800" value="{{ values.dns_propagation_timeout }}"></label>
+    <label>自动续期
+      <select name="auto_renew_enabled">
+        <option value="1" {{ 'selected' if values.auto_renew_enabled == '1' }}>开启</option>
+        <option value="0" {{ 'selected' if values.auto_renew_enabled == '0' }}>关闭（只手动申请）</option>
+      </select>
+    </label>
+    <label>新建证书默认密钥类型
+      <select name="cert_key_type">
+        {% for value, label in key_types.items() %}
+          <option value="{{ value }}" {{ 'selected' if values.cert_key_type == value }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="full">PFX 导出密码（{% if secret_state.pfx_password %}已设置，留空表示不修改{% else %}未设置{% endif %}）
+      <input type="password" name="pfx_password" autocomplete="new-password">
+    </label>
+    <div class="full"><button type="submit" class="primary">保存全部设置</button></div>
+  </form>
+
+  <h2>3. 到期提醒邮件（可选）</h2>
+  <form method="post" action="/settings" class="grid2">
+    {{ csrf_field() }}
+    <label>提醒开关
+      <select name="notify_enabled">
+        <option value="0" {{ 'selected' if values.notify_enabled == '0' }}>关闭</option>
+        <option value="1" {{ 'selected' if values.notify_enabled == '1' }}>开启（签发失败 + 即将到期时发信）</option>
+      </select>
+    </label>
+    <label>收件人（多个用逗号分隔）<input name="notify_to" value="{{ values.notify_to }}" placeholder="ops@example.com"></label>
+    <label>SMTP 服务器<input name="smtp_host" value="{{ values.smtp_host }}" placeholder="smtp.mxhichina.com"></label>
+    <label>端口<input type="number" name="smtp_port" value="{{ values.smtp_port }}" min="1" max="65535"></label>
+    <label>加密方式
+      <select name="smtp_use_ssl">
+        <option value="1" {{ 'selected' if values.smtp_use_ssl == '1' }}>SSL（465）</option>
+        <option value="0" {{ 'selected' if values.smtp_use_ssl == '0' }}>STARTTLS / 明文（25、587）</option>
+      </select>
+    </label>
+    <label>SMTP 账号<input name="smtp_username" value="{{ values.smtp_username }}"></label>
+    <label>SMTP 密码（{% if secret_state.smtp_password %}已设置，留空表示不修改{% else %}未设置{% endif %}）
+      <input type="password" name="smtp_password" autocomplete="new-password">
+    </label>
+    <label>发件人地址<input name="smtp_from" value="{{ values.smtp_from }}" placeholder="cert@example.com"></label>
+    <div class="full row">
+      <button type="submit" class="primary">保存全部设置</button>
+      <button type="submit" formaction="/settings/test-smtp">发送测试邮件</button>
+    </div>
+  </form>
+
+  <h2>4. 登录密码</h2>
+  <form method="post" action="/settings/change-password" class="grid2">
+    {{ csrf_field() }}
+    <label>当前密码<input type="password" name="current_password" required autocomplete="current-password"></label>
+    <label>新密码（至少 10 位）<input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+    <div class="full"><button type="submit">修改并退出登录</button></div>
+  </form>
+
+  <h2>5. 安全说明</h2>
+  <ul class="muted small">
+    <li>AccessKeySecret、证书私钥都保存在 <code>{{ data_dir }}</code> 下，请把该目录权限收紧到只有运行用户可读（Linux 上 <code>chmod -R 700</code>）。</li>
+    <li>主密钥在 <code>{{ data_dir }}/master.key</code>（或用环境变量 <code>ACME_MASTER_KEY</code> 覆盖）。两者同时丢失时，Secret 只能重新录入。</li>
+    <li>本平台只应通过 HTTPS 或内网访问，不要直接暴露公网端口。</li>
+  </ul>
+{% endblock %}

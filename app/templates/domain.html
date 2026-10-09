@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field, status_badge with context %}
+{% block content %}
+  <h1>{{ domain.domain }}</h1>
+  <p class="muted">凭证：{{ domain.credential_name }} ｜ 添加时间：{{ domain.created_at | local }}</p>
+
+  <h2>子域名 / 主机记录</h2>
+  <p class="muted">勾选的记录会进入同一张证书的 SAN 列表。<code>*</code> 就是泛域名（*.{{ domain.domain }}），泛域名只能用 DNS-01 验证，也就是本工具的阿里云 TXT 方式。</p>
+
+  <form method="post" class="stack">
+    {{ csrf_field() }}
+    {% if shared_txt %}
+      <p class="muted small">提示：主域名 <code>@</code> 与泛域名 <code>*</code> 的验证记录同名（都是
+      <code>_acme-challenge.{{ domain.domain }}</code>），申请时会自动写入两条不同取值的 TXT，CA 会匹配其中任意一条。</p>
+    {% endif %}
+    <table>
+      <thead><tr><th>签发</th><th>主机记录</th><th>完整域名</th><th>需要添加的 TXT</th><th></th></tr></thead>
+      <tbody>
+      {% for row in subnames %}
+        <tr>
+          <td><input type="checkbox" name="rr" value="{{ row.rr }}" {{ 'checked' if row.enabled }}></td>
+          <td><code>{{ row.rr }}</code></td>
+          <td>{{ row.fqdn }}</td>
+          <td><code>{{ row.txt }}</code></td>
+          <td>
+            <button type="submit" class="link danger" formaction="/domains/{{ domain.id }}/subnames/{{ row.id }}/delete"
+                    onclick="return confirm('从列表移除 {{ row.rr }}？')">移除</button>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">还没有记录，先添加或从阿里云导入。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="row">
+      <button type="submit" formaction="/domains/{{ domain.id }}/subnames/toggle">保存勾选</button>
+      <label class="inline">密钥类型
+        <select name="key_type">
+          {% for value, label in key_types.items() %}
+            <option value="{{ value }}" {{ 'selected' if value == s.cert_key_type }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="primary" formaction="/domains/{{ domain.id }}/issue">申请证书</button>
+    </div>
+  </form>
+
+  <h3>当前勾选的 SAN（{{ preview | length }} 个）</h3>
+  {% if preview_error %}
+    <p class="flash bad">{{ preview_error }}</p>
+  {% else %}
+    <p><code>{{ preview | join('、') or '（未勾选任何记录）' }}</code></p>
+  {% endif %}
+
+  <h2>添加主机记录</h2>
+  <form method="post" action="/domains/{{ domain.id }}/subnames" class="row">
+    {{ csrf_field() }}
+    <input name="rr" placeholder="www / api / shop / * / _next" required pattern="[A-Za-z0-9*._@-]{1,100}">
+    <button type="submit" class="primary">添加并勾选</button>
+  </form>
+  <form method="post" action="/domains/{{ domain.id }}/import-records">
+    {{ csrf_field() }}
+    <button type="submit">从阿里云导入现有解析记录</button>
+  </form>
+
+  <h2>该域名的证书</h2>
+  <table>
+    <thead><tr><th>#</th><th>包含域名</th><th>密钥</th><th>状态</th><th>到期</th><th>更新时间</th><th></th></tr></thead>
+    <tbody>
+    {% for cert in certificates %}
+      <tr>
+        <td>{{ cert.id }}</td>
+        <td><code>{{ cert.name_list | join(', ') }}</code></td>
+        <td>{{ cert.key_type }}</td>
+        <td>{{ status_badge(cert.status, cert.remaining) }}</td>
+        <td>{{ cert.not_after_display or '—' }}</td>
+        <td>{{ cert.updated_display }}</td>
+        <td><a href="/certificates/{{ cert.id }}">详情 / 下载</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">还没有证书。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

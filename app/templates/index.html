@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, names_list with context %}
+{% block content %}
+  <h1>概览</h1>
+  <div class="cards">
+    <div class="card stat"><b>{{ counters.credentials }}</b><span>阿里云凭证</span></div>
+    <div class="card stat"><b>{{ counters.domains }}</b><span>已管理域名</span></div>
+    <div class="card stat"><b>{{ counters.certificates }}</b><span>证书记录</span></div>
+  </div>
+
+  {% set warning = [] %}
+  {% for cert in certs %}
+    {% if cert.status == 'active' and cert.remaining is not none and cert.remaining <= s.warn_before_days | int %}
+      {% if warning.append(cert) %}{% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if warning %}
+    <p class="flash bad">有 {{ warning | length }} 张证书在 {{ s.warn_before_days }} 天内到期，自动续期可能被关闭或失败了，请检查。</p>
+  {% endif %}
+
+  <h2>证书状态</h2>
+  <table>
+    <thead><tr><th>#</th><th>域名</th><th>包含</th><th>状态</th><th>到期</th><th></th></tr></thead>
+    <tbody>
+    {% for cert in certs[:10] %}
+      <tr>
+        <td>{{ cert.id }}</td>
+        <td>{{ cert.domain }}</td>
+        <td>{{ names_list(cert.name_list) }}</td>
+        <td>{{ status_badge(cert.status, cert.remaining) }}</td>
+        <td>{{ cert.not_after_display or '—' }}</td>
+        <td><a href="/certificates/{{ cert.id }}">详情</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="muted">还没有证书。先到「阿里云凭证」添加 AccessKey，再到「域名与子域名」添加域名。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>最近的签发日志</h2>
+  <table class="log">
+    <thead><tr><th>时间</th><th>级别</th><th>域名</th><th>内容</th></tr></thead>
+    <tbody>
+    {% for row in events %}
+      <tr>
+        <td>{{ row.created_at | local }}</td>
+        <td class="lvl-{{ row.level }}">{{ row.level }}</td>
+        <td><a href="/certificates/{{ row.certificate_id }}">{{ row.domain }}</a></td>
+        <td>{{ row.message }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">暂无日志</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

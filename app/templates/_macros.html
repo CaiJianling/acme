@@ -1,0 +1,24 @@
+{% macro csrf_field() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf }}">
+{%- endmacro %}
+
+{% macro status_badge(status, remaining) -%}
+{%- set labels = {
+  'pending': ['待申请', 'muted'],
+  'issuing': ['申请中', 'busy'],
+  'active': ['有效', 'ok'],
+  'error': ['失败', 'bad'],
+  'expired': ['已过期', 'bad'],
+  'revoked': ['已吊销', 'muted']
+} -%}
+{%- set item = labels.get(status, [status, 'muted']) -%}
+<span class="badge {{ item[1] }}">{{ item[0] }}{% if status == 'active' and remaining is not none %} · 剩 {{ remaining }} 天{% endif %}</span>
+{%- endmacro %}
+
+{% macro names_list(names) -%}
+{%- if names -%}
+<code class="names">{{ names | join(', ') }}</code>
+{%- else -%}
+<span class="muted">（还没有域名）</span>
+{%- endif -%}
+{%- endmacro %}
